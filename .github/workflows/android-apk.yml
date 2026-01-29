@@ -39,7 +39,8 @@ jobs:
         run: |
           node -e "
           const { execSync } = require('child_process');
-          const builds = JSON.parse(execSync('eas build:list --platform android --limit 1 --json', { stdio: ['pipe','pipe','inherit'] }).toString());
+          const cmd = 'eas build:list --platform android --limit 1 --json --non-interactive';
+          const builds = JSON.parse(execSync(cmd, { stdio: ['pipe','pipe','inherit'] }).toString());
           if (!builds.length) throw new Error('No builds found');
           const b = builds[0];
           const url = b.artifacts?.buildUrl;
