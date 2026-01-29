@@ -1,0 +1,59 @@
+name: Build Android APK (EAS)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm i -g eas-cli
+
+      - name: EAS Build (APK)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build --platform android --profile apk --non-interactive --wait
+
+      - name: Download latest APK artifact
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          node -e "
+          const { execSync } = require('child_process');
+          const builds = JSON.parse(execSync('eas build:list --platform android --limit 1 --json', { stdio: ['pipe','pipe','inherit'] }).toString());
+          if (!builds.length) throw new Error('No builds found');
+          const b = builds[0];
+          const url = b.artifacts?.buildUrl;
+          if (!url) throw new Error('No buildUrl found in artifacts');
+          console.log('APK_URL=' + url);
+          " > apk_url.txt
+
+          APK_URL=$(cat apk_url.txt | sed -n 's/^APK_URL=//p')
+          echo "Downloading: $APK_URL"
+          curl -L "$APK_URL" -o app-release.apk
+          ls -lh app-release.apk
+
+      - name: Upload APK to workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: app-release.apk
+          if-no-files-found: error

@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Signage Wide",
+    "slug": "signage-wide",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "android": {
+      "package": "com.yourcompany.signagewide",
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-video"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bc4eb3de-f276-47e4-a770-5574948177f0"
+      }
+    },
+    "owner": "boss443"
+  }
+}
