@@ -2,18 +2,10 @@ name: Build Android APK (EAS)
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
     tags:
       - "v*"
   workflow_dispatch: {}
-
-concurrency:
-  group: eas-apk-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  actions: read
 
 jobs:
   build-android-apk:
@@ -31,7 +23,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Cache Expo/EAS
+      - name: Cache Expo/Metro
         uses: actions/cache@v4
         with:
           path: |
@@ -47,61 +39,24 @@ jobs:
       - name: Install EAS CLI
         run: npm i -g eas-cli
 
-      - name: Sanity check token
-        run: eas whoami --non-interactive
-
       - name: EAS Build (APK)
         run: |
-          eas build \
-            --platform android \
-            --profile apk \
-            --non-interactive \
-            --wait \
-            --project-dir .
+          eas build --platform android --profile apk --non-interactive --wait --project-dir .
 
-      - name: Resolve latest APK URL
+      - name: Download latest APK artifact
         run: |
-          node - <<'NODE'
-          const { execSync } = require("child_process");
+          node -e "
+          const { execSync } = require('child_process');
+          const cmd = 'eas build:list --platform android --limit 1 --json --non-interactive --project-dir .';
+          const builds = JSON.parse(execSync(cmd, { stdio: ['pipe','pipe','inherit'] }).toString());
+          if (!builds.length) throw new Error('No builds found');
+          const b = builds[0];
+          const url = b.artifacts?.buildUrl;
+          if (!url) throw new Error('No buildUrl found in artifacts');
+          console.log('APK_URL=' + url);
+          " > apk_url.txt
 
-          const projectId = process.env.EAS_PROJECT_ID;
-          if (!projectId) throw new Error("Missing EAS_PROJECT_ID env (set in secrets)");
-
-          const cmd = [
-            "eas build:list",
-            "--platform android",
-            "--limit 5",
-            "--json",
-            "--non-interactive",
-            `--project-id ${projectId}`,
-            "--project-dir .",
-          ].join(" ");
-
-          const builds = JSON.parse(execSync(cmd, { stdio: ["pipe","pipe","inherit"] }).toString());
-          if (!Array.isArray(builds) || builds.length === 0) throw new Error("No builds found");
-
-          // เอา build ที่เป็น finished ก่อน (กันกรณี list เจอ build อื่นที่ยัง running)
-          const b = builds.find(x => x.status === "finished") || builds[0];
-
-          const artifacts = b.artifacts || {};
-          const url =
-            artifacts.buildUrl ||
-            artifacts.applicationArchiveUrl ||
-            artifacts.apkUrl ||
-            artifacts.url;
-
-          if (!url) {
-            console.log("Build object:", JSON.stringify(b, null, 2));
-            throw new Error("No downloadable artifact URL found");
-          }
-
-          console.log(`APK_URL=${url}`);
-          NODE
-          | tee apk_url.txt
-
-      - name: Download APK
-        run: |
-          APK_URL=$(sed -n 's/^APK_URL=//p' apk_url.txt)
+          APK_URL=$(cat apk_url.txt | sed -n 's/^APK_URL=//p')
           echo "Downloading: $APK_URL"
           curl -L "$APK_URL" -o app-release.apk
           ls -lh app-release.apk
