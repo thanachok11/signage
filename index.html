@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kiosk API Runner</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --card: rgba(255, 255, 255, 0.06);
+            --card2: rgba(255, 255, 255, 0.09);
+            --text: rgba(255, 255, 255, 0.92);
+            --muted: rgba(255, 255, 255, 0.7);
+            --border: rgba(255, 255, 255, 0.14);
+            --ok: rgba(34, 197, 94, 1);
+            --warn: rgba(245, 158, 11, 1);
+            --bad: rgba(239, 68, 68, 1);
+            --accent: rgba(99, 102, 241, 1);
+            --shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+            --radius: 18px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 700px at 20% 10%, rgba(99, 102, 241, 0.35), transparent 55%),
+                radial-gradient(900px 600px at 80% 20%, rgba(34, 197, 94, 0.22), transparent 55%),
+                radial-gradient(900px 700px at 50% 100%, rgba(245, 158, 11, 0.18), transparent 60%),
+                var(--bg);
+            min-height: 100vh;
+            padding: 28px;
+        }
+
+        .wrap {
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        .title h1 {
+            margin: 0;
+            font-size: 22px;
+            letter-spacing: 0.2px;
+        }
+
+        .title p {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .chip {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, var(--card), transparent);
+            border-radius: 999px;
+            box-shadow: var(--shadow);
+            font-size: 12px;
+            color: var(--muted);
+            backdrop-filter: blur(8px);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 980px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: linear-gradient(180deg, var(--card2), rgba(255, 255, 255, 0.03));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .card-h {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 14px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .card-h h2 {
+            margin: 0;
+            font-size: 14px;
+            letter-spacing: 0.2px;
+        }
+
+        .card-b {
+            padding: 14px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @media (max-width: 560px) {
+            .row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            color: var(--text);
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            padding: 10px 12px;
+            outline: none;
+        }
+
+        textarea {
+            min-height: 170px;
+            resize: vertical;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        button {
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: transform .06s ease, background .2s ease, border-color .2s ease;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.10);
+            border-color: rgba(255, 255, 255, 0.22);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button.primary {
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.75), rgba(99, 102, 241, 0.45));
+            border-color: rgba(99, 102, 241, 0.55);
+        }
+
+        button.good {
+            background: linear-gradient(180deg, rgba(34, 197, 94, 0.75), rgba(34, 197, 94, 0.45));
+            border-color: rgba(34, 197, 94, 0.55);
+        }
+
+        button.danger {
+            background: linear-gradient(180deg, rgba(239, 68, 68, 0.75), rgba(239, 68, 68, 0.45));
+            border-color: rgba(239, 68, 68, 0.55);
+        }
+
+        .kv {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 8px 10px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .kv b {
+            color: var(--text);
+            font-weight: 650;
+        }
+
+        .log {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.45;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 14px;
+            padding: 12px;
+            max-height: 380px;
+            overflow: auto;
+        }
+
+        .pill {
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(0, 0, 0, 0.18);
+            color: var(--muted);
+        }
+
+        .pill.ok {
+            border-color: rgba(34, 197, 94, 0.35);
+            color: rgba(187, 247, 208, 0.95);
+        }
+
+        .pill.bad {
+            border-color: rgba(239, 68, 68, 0.35);
+            color: rgba(254, 202, 202, 0.95);
+        }
+
+        .pill.warn {
+            border-color: rgba(245, 158, 11, 0.35);
+            color: rgba(253, 230, 138, 0.95);
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New";
+        }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .footer {
+            margin-top: 14px;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 12px;
+        }
+
+        .split {
+            display: flex;
+            gap: 10px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .split>div {
+            flex: 1;
+            min-width: 220px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <div class="title">
+                <h1>Kiosk API Runner (Login → Create Order → Pay/Queue)</h1>
+                <p>เลือกชนิดออเดอร์ (preset) ได้ แล้วแก้ JSON ต่อได้เลย</p>
+            </div>
+            <div class="chip">
+                <span>Token:</span>
+                <span id="tokenState" class="pill warn">ยังไม่มี</span>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- LOGIN -->
+            <div class="card">
+                <div class="card-h">
+                    <h2>1) Login (POST /api/kiosk/login)</h2>
+                    <span id="loginState" class="pill warn">idle</span>
+                </div>
+                <div class="card-b">
+                    <div class="row">
+                        <div>
+                            <label>Base URL</label>
+                            <input id="baseUrl" value="https://kiosk-pos-api.aicard.work" />
+                        </div>
+                        <div>
+                            <label>Token Storage</label>
+                            <select id="tokenMode">
+                                <option value="localStorage" selected>localStorage</option>
+                                <option value="memory">memory (ชั่วคราว)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>deviceId</label>
+                            <input id="deviceId" value="AA78778B-DEE3-471E-B57D-30021090A75D" />
+                        </div>
+                        <div>
+                            <label>deviceCode</label>
+                            <input id="deviceCode" value="0dd22f" />
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <button class="primary" id="btnLogin">Login & Save Token</button>
+                        <button class="danger" id="btnClearToken">Clear Token</button>
+                    </div>
+
+                    <div class="hint">
+                        Header auth ใช้ <span class="mono">Authorization: Bearer &lt;token&gt;</span>
+                        (ถ้าของจริงใช้ชื่อ header อื่น บอกผม เดี๋ยวปรับให้)
+                    </div>
+                </div>
+            </div>
+
+            <!-- CREATE ORDER -->
+            <div class="card">
+                <div class="card-h">
+                    <h2>2) Create Order (POST /api/orders/create)</h2>
+                    <span id="createState" class="pill warn">idle</span>
+                </div>
+                <div class="card-b">
+                    <div class="split">
+                        <div>
+                            <label>Order Preset (ชนิดออเดอร์)</label>
+                            <select id="orderPreset"></select>
+                        </div>
+                        <div>
+                            <label>Preset Action</label>
+                            <div class="actions" style="margin-top:0">
+                                <button id="btnApplyPreset">Apply Preset</button>
+                                <button id="btnFillSample">Reset to Sample</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <label style="margin-top: 10px;">Order JSON Body</label>
+                    <textarea id="orderBody"></textarea>
+
+                    <div class="actions">
+                        <button class="good" id="btnCreateOrder">Create Order</button>
+                    </div>
+
+                    <div style="margin-top: 12px;" class="kv">
+                        <div>Order ID</div>
+                        <div><b id="orderId" class="mono">-</b></div>
+                        <div>Last Create Result</div>
+                        <div><b id="createMsg">-</b></div>
+                    </div>
+
+                    <div class="footer">ต้อง login ก่อนเพื่อให้มี token</div>
+                </div>
+            </div>
+
+            <!-- PAY -->
+            <div class="card">
+                <div class="card-h">
+                    <h2>3) Pay & Create Queue (POST /api/orders/{id}/pay)</h2>
+                    <span id="payState" class="pill warn">idle</span>
+                </div>
+                <div class="card-b">
+                    <div class="row">
+                        <div>
+                            <label>Order ID</label>
+                            <input id="payOrderId" placeholder="ใส่ id หรือกด Create แล้วจะเติมให้" />
+                        </div>
+                        <div>
+                            <label>paymentType</label>
+                            <select id="paymentType">
+                                <option value="1" selected>1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <button class="good" id="btnPay">Pay & Create Queue</button>
+                        <button id="btnPayFromCreated">Use Created Order ID</button>
+                    </div>
+
+                    <div style="margin-top: 12px;" class="kv">
+                        <div>Last Pay Result</div>
+                        <div><b id="payMsg">-</b></div>
+                    </div>
+
+                    <div class="hint">ถ้า response มี queueNumber จะเห็นใน log</div>
+                </div>
+            </div>
+
+            <!-- LOGS -->
+            <div class="card">
+                <div class="card-h">
+                    <h2>Logs</h2>
+                    <div class="actions" style="margin:0">
+                        <button id="btnCopyLog">Copy</button>
+                        <button id="btnClearLog">Clear</button>
+                    </div>
+                </div>
+                <div class="card-b">
+                    <div id="log" class="log"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        const state = {
+            token: null,
+            createdOrderId: null,
+        };
+
+        function now() {
+            const d = new Date();
+            const hh = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            const ss = String(d.getSeconds()).padStart(2, "0");
+            return `${hh}:${mm}:${ss}`;
+        }
+
+        function setPill(el, type, text) {
+            el.classList.remove("ok", "bad", "warn");
+            el.classList.add(type);
+            el.textContent = text;
+        }
+
+        function safeStringify(v) {
+            try {
+                return typeof v === "string" ? v : JSON.stringify(v, null, 2);
+            } catch {
+                return String(v);
+            }
+        }
+
+        function log(line, obj) {
+            const box = $("log");
+            const head = `[${now()}] ${line}`;
+            if (obj !== undefined) box.textContent += head + "\n" + safeStringify(obj) + "\n\n";
+            else box.textContent += head + "\n\n";
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function baseUrl() {
+            return $("baseUrl").value.replace(/\/+$/, "");
+        }
+
+        function tokenMode() {
+            return $("tokenMode").value;
+        }
+
+        function refreshTokenUI() {
+            const pill = $("tokenState");
+            if (state.token) setPill(pill, "ok", "พร้อมใช้");
+            else setPill(pill, "warn", "ยังไม่มี");
+        }
+
+        function loadToken() {
+            if (tokenMode() === "localStorage") {
+                const t = localStorage.getItem("KIOSK_TOKEN");
+                state.token = t || null;
+            }
+            refreshTokenUI();
+        }
+
+        function saveToken(token) {
+            state.token = token;
+            if (tokenMode() === "localStorage") localStorage.setItem("KIOSK_TOKEN", token);
+            refreshTokenUI();
+        }
+
+        function clearToken() {
+            state.token = null;
+            localStorage.removeItem("KIOSK_TOKEN");
+            refreshTokenUI();
+        }
+
+        function authHeaders() {
+            const token = state.token;
+            if (!token) return {};
+            return { Authorization: `Bearer ${token}` };
+        }
+
+        async function fetchJson(url, { method = "GET", headers = {}, body } = {}) {
+            const res = await fetch(url, {
+                method,
+                headers: { "Content-Type": "application/json", ...headers },
+                body: body !== undefined ? JSON.stringify(body) : undefined,
+            });
+
+            const text = await res.text();
+            let data = null;
+            try { data = text ? JSON.parse(text) : null; }
+            catch { data = text || null; }
+
+            return { ok: res.ok, status: res.status, data };
+        }
+
+        // ======================
+        // Order Presets (ชนิดออเดอร์)
+        // ======================
+        const PRESETS = [
+            {
+                key: "americano_x2_extraShot",
+                name: "Americano x2 + Extra Shot",
+                body: {
+                    totalPrice: 120,
+                    items: [
+                        {
+                            menuId: "MN001",
+                            code: "AM001",
+                            name: "Americano",
+                            price: 60,
+                            qty: 2,
+                            total: 120,
+                            options: [
+                                {
+                                    menuOptionOID: "OPT001",
+                                    menuOptionDetailOID: "OPTD001",
+                                    menuOptionMasterDataOID: "OPTM001",
+                                    code: "EXSHOT",
+                                    name: "Extra Shot",
+                                    price: 10,
+                                    amount: 1,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                key: "americano_single_no_option",
+                name: "Americano x1 (ไม่มี options)",
+                body: {
+                    totalPrice: 60,
+                    items: [
+                        {
+                            menuId: "MN001",
+                            code: "AM001",
+                            name: "Americano",
+                            price: 60,
+                            qty: 1,
+                            total: 60,
+                            options: [],
+                        },
+                    ],
+                },
+            },
+            {
+                key: "latte_hot_sweet50",
+                name: "Latte x1 (ตัวอย่าง options หวาน/ร้อน)",
+                body: {
+                    totalPrice: 75,
+                    items: [
+                        {
+                            menuId: "MN002",
+                            code: "LT001",
+                            name: "Latte",
+                            price: 75,
+                            qty: 1,
+                            total: 75,
+                            options: [
+                                {
+                                    menuOptionOID: "OPT_SWEET",
+                                    menuOptionDetailOID: "OPTD_SWEET_50",
+                                    menuOptionMasterDataOID: "OPTM_SWEET",
+                                    code: "SWEET50",
+                                    name: "หวาน 50%",
+                                    price: 0,
+                                    amount: 1,
+                                },
+                                {
+                                    menuOptionOID: "OPT_TEMP",
+                                    menuOptionDetailOID: "OPTD_TEMP_HOT",
+                                    menuOptionMasterDataOID: "OPTM_TEMP",
+                                    code: "HOT",
+                                    name: "ร้อน",
+                                    price: 0,
+                                    amount: 1,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                key: "multi_items_combo",
+                name: "Multi Items (กาแฟ + ขนม)",
+                body: {
+                    totalPrice: 155,
+                    items: [
+                        {
+                            menuId: "MN001",
+                            code: "AM001",
+                            name: "Americano",
+                            price: 60,
+                            qty: 1,
+                            total: 60,
+                            options: [],
+                        },
+                        {
+                            menuId: "DS001",
+                            code: "CK001",
+                            name: "Cheesecake",
+                            price: 95,
+                            qty: 1,
+                            total: 95,
+                            options: [],
+                        },
+                    ],
+                },
+            },
+            {
+                key: "custom_blank",
+                name: "Blank Template (เริ่มจากศูนย์)",
+                body: {
+                    totalPrice: 0,
+                    items: [
+                        {
+                            menuId: "",
+                            code: "",
+                            name: "",
+                            price: 0,
+                            qty: 1,
+                            total: 0,
+                            options: [],
+                        },
+                    ],
+                },
+            },
+        ];
+
+        function initPresets() {
+            const sel = $("orderPreset");
+            sel.innerHTML = "";
+            for (const p of PRESETS) {
+                const opt = document.createElement("option");
+                opt.value = p.key;
+                opt.textContent = p.name;
+                sel.appendChild(opt);
+            }
+            sel.value = PRESETS[0].key;
+        }
+
+        function getPreset(key) {
+            return PRESETS.find((p) => p.key === key) || PRESETS[0];
+        }
+
+        function applyPreset(key) {
+            const p = getPreset(key);
+            $("orderBody").value = JSON.stringify(p.body, null, 2);
+            log("Applied preset: " + p.name, p.body);
+        }
+
+        // ======================
+        // UI actions
+        // ======================
+        $("btnApplyPreset").addEventListener("click", () => {
+            applyPreset($("orderPreset").value);
+        });
+
+        $("btnFillSample").addEventListener("click", () => {
+            applyPreset("americano_x2_extraShot");
+        });
+
+        $("btnClearToken").addEventListener("click", () => {
+            clearToken();
+            setPill($("loginState"), "warn", "idle");
+            log("Cleared token");
+        });
+
+        $("btnLogin").addEventListener("click", async () => {
+            setPill($("loginState"), "warn", "loading");
+            const url = `${baseUrl()}/api/kiosk/login`;
+            const body = {
+                deviceId: $("deviceId").value.trim(),
+                deviceCode: $("deviceCode").value.trim(),
+            };
+
+            log("LOGIN request → " + url, body);
+
+            try {
+                const r = await fetchJson(url, { method: "POST", body });
+                log(`LOGIN response (${r.status})`, r.data);
+
+                if (!r.ok) {
+                    setPill($("loginState"), "bad", "failed");
+                    return;
+                }
+
+                const token =
+                    (r.data && r.data.token) ||
+                    (r.data && r.data.accessToken) ||
+                    (r.data && r.data.data && r.data.data.token) ||
+                    (r.data && r.data.data && r.data.data.accessToken) ||
+                    null;
+
+                if (!token) {
+                    setPill($("loginState"), "bad", "no token");
+                    log("⚠️ หา token ไม่เจอใน response — ส่งตัวอย่าง response มา เดี๋ยวผมปรับ key ให้เป๊ะ");
+                    return;
+                }
+
+                saveToken(token);
+                setPill($("loginState"), "ok", "success");
+                log("Saved token ✅");
+            } catch (e) {
+                setPill($("loginState"), "bad", "error");
+                log("LOGIN error", String(e));
+            }
+        });
+
+        $("btnCreateOrder").addEventListener("click", async () => {
+            if (!state.token) {
+                setPill($("createState"), "bad", "no token");
+                log("❌ Create order: no token (ต้อง login ก่อน)");
+                return;
+            }
+
+            setPill($("createState"), "warn", "loading");
+            const url = `${baseUrl()}/api/orders/create`;
+
+            let body;
+            try {
+                body = JSON.parse($("orderBody").value || "{}");
+            } catch (e) {
+                setPill($("createState"), "bad", "bad json");
+                log("❌ JSON parse error", String(e));
+                return;
+            }
+
+            log("CREATE_ORDER request → " + url, body);
+
+            try {
+                const r = await fetchJson(url, {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body,
+                });
+
+                log(`CREATE_ORDER response (${r.status})`, r.data);
+
+                if (!r.ok) {
+                    setPill($("createState"), "bad", "failed");
+                    $("createMsg").textContent = "failed (" + r.status + ")";
+                    return;
+                }
+
+                const id =
+                    (r.data && r.data.id) ||
+                    (r.data && r.data.orderId) ||
+                    (r.data && r.data.data && r.data.data.id) ||
+                    (r.data && r.data.data && r.data.data.orderId) ||
+                    null;
+
+                if (!id) {
+                    setPill($("createState"), "warn", "no id");
+                    $("createMsg").textContent = "success แต่หา id ไม่เจอ";
+                    log("⚠️ Create สำเร็จแต่หา id ไม่เจอ — ส่ง response มา เดี๋ยวผม map ให้ตรง");
+                    return;
+                }
+
+                state.createdOrderId = id;
+                $("orderId").textContent = id;
+                $("payOrderId").value = id;
+                $("createMsg").textContent = "success";
+                setPill($("createState"), "ok", "success");
+                log("Created order id ✅ " + id);
+            } catch (e) {
+                setPill($("createState"), "bad", "error");
+                $("createMsg").textContent = "error";
+                log("CREATE_ORDER error", String(e));
+            }
+        });
+
+        $("btnPayFromCreated").addEventListener("click", () => {
+            if (state.createdOrderId) {
+                $("payOrderId").value = state.createdOrderId;
+                log("Set payOrderId from created order id: " + state.createdOrderId);
+            } else {
+                log("⚠️ ยังไม่มี createdOrderId");
+            }
+        });
+
+        $("btnPay").addEventListener("click", async () => {
+            if (!state.token) {
+                setPill($("payState"), "bad", "no token");
+                log("❌ Pay: no token (ต้อง login ก่อน)");
+                return;
+            }
+
+            const id = $("payOrderId").value.trim();
+            if (!id) {
+                setPill($("payState"), "bad", "no id");
+                log("❌ Pay: no order id");
+                return;
+            }
+
+            setPill($("payState"), "warn", "loading");
+
+            const url = `${baseUrl()}/api/orders/${encodeURIComponent(id)}/pay`;
+            const body = { paymentType: Number($("paymentType").value) };
+
+            log("PAY request → " + url, body);
+
+            try {
+                const r = await fetchJson(url, {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body,
+                });
+
+                log(`PAY response (${r.status})`, r.data);
+
+                if (!r.ok) {
+                    setPill($("payState"), "bad", "failed");
+                    $("payMsg").textContent = "failed (" + r.status + ")";
+                    return;
+                }
+
+                setPill($("payState"), "ok", "success");
+                $("payMsg").textContent = "success";
+            } catch (e) {
+                setPill($("payState"), "bad", "error");
+                $("payMsg").textContent = "error";
+                log("PAY error", String(e));
+            }
+        });
+
+        $("btnClearLog").addEventListener("click", () => {
+            $("log").textContent = "";
+        });
+
+        $("btnCopyLog").addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText($("log").textContent || "");
+                log("Copied logs ✅");
+            } catch (e) {
+                log("Copy failed", String(e));
+            }
+        });
+
+        // init
+        initPresets();
+        applyPreset(PRESETS[0].key);
+        loadToken();
+        log("Ready. (If CORS blocked, run via same domain/proxy or enable CORS on backend)");
+    </script>
+</body>
+
+</html>
