@@ -7,6 +7,10 @@ on:
       - "v*"
   workflow_dispatch: {}
 
+concurrency:
+  group: eas-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-android-apk:
     runs-on: ubuntu-latest
@@ -39,24 +43,32 @@ jobs:
       - name: Install EAS CLI
         run: npm i -g eas-cli
 
+      - name: Verify Expo Login
+        run: eas whoami --non-interactive
+
+      # ---------------- BUILD ----------------
       - name: EAS Build (APK)
         run: eas build --platform android --profile apk --non-interactive --wait
 
+      # ---------------- RESOLVE APK URL ----------------
       - name: Resolve latest APK URL
         run: |
           node - <<'NODE'
           const { execSync } = require("child_process");
+          const fs = require("fs");
 
-          // ✅ ต้องใช้ build:list --json (ไม่ใช่ build)
-          const cmd = "eas build:list --platform android --limit 5 --json --non-interactive";
-          const out = execSync(cmd, { stdio: ["pipe", "pipe", "inherit"] }).toString();
+          // ดึง build list แบบ JSON
+          const out = execSync(
+            "eas build:list --platform android --limit 5 --json --non-interactive",
+            { stdio: ["pipe","pipe","inherit"] }
+          ).toString();
+
           const builds = JSON.parse(out);
-
           if (!Array.isArray(builds) || builds.length === 0) {
-            throw new Error("No builds found from build:list");
+            throw new Error("No builds found");
           }
 
-          // เอา finished ก่อน กัน list ติดตัวที่ยัง running
+          // เลือก build ที่ finished ก่อน
           const b = builds.find(x => x.status === "finished") || builds[0];
 
           const url =
@@ -66,13 +78,15 @@ jobs:
 
           if (!url) {
             console.log("Build:", JSON.stringify(b, null, 2));
-            throw new Error("No artifact URL found in build artifacts");
+            throw new Error("No APK artifact URL");
           }
 
-          console.log("APK_URL=" + url);
+          const line = "APK_URL=" + url + "\n";
+          console.log(line.trim());
+          fs.writeFileSync("apk_url.txt", line);
           NODE
-          | tee apk_url.txt
 
+      # ---------------- DOWNLOAD APK ----------------
       - name: Download APK
         run: |
           APK_URL=$(sed -n 's/^APK_URL=//p' apk_url.txt)
@@ -80,6 +94,7 @@ jobs:
           curl -L "$APK_URL" -o app-release.apk
           ls -lh app-release.apk
 
+      # ---------------- UPLOAD ARTIFACT ----------------
       - name: Upload APK to workflow artifacts
         uses: actions/upload-artifact@v4
         with:
