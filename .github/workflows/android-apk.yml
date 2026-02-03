@@ -20,8 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      # ใส่ projectId ให้ตรง (แนะนำเก็บเป็น Secrets/Vars ก็ได้)
-      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
 
     steps:
       - name: Checkout
