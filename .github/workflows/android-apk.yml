@@ -41,13 +41,13 @@ jobs:
 
       - name: EAS Build (APK)
         run: |
-          eas build --platform android --profile apk --non-interactive --wait --project-dir .
+          eas build --platform android --profile apk --non-interactive --wait
 
       - name: Download latest APK artifact
         run: |
           node -e "
           const { execSync } = require('child_process');
-          const cmd = 'eas build:list --platform android --limit 1 --json --non-interactive --project-dir .';
+          const cmd = 'eas build --platform android --profile apk --non-interactive --wait';
           const builds = JSON.parse(execSync(cmd, { stdio: ['pipe','pipe','inherit'] }).toString());
           if (!builds.length) throw new Error('No builds found');
           const b = builds[0];
