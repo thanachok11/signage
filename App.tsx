@@ -3,32 +3,42 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { WebView } from "react-native-webview";
 import { VideoView, useVideoPlayer } from "expo-video";
+import type { StyleProp, ViewStyle } from "react-native";
 
 import {
     HARD_RELOAD_INTERVAL_MS,
     RETRY_DELAY_MS,
-    // แนะนำให้ย้าย SIGNAGE_URL ออก หรือเก็บไว้เป็น fallback
     SIGNAGE_URL,
-} from "./ src/config";
+} from "./src/config";
 
 /** ====== CONFIG ที่ต้องตั้ง ====== */
 const DEVICE_ID = "DEVICE_001";
-
-// ต้องเป็น URL หลังบ้านที่ deploy แล้ว (ห้าม localhost บนเครื่องจริง)
-// ตัวอย่าง: https://your-api.onrender.com
 const SIGNAGE_API_BASE = "https://signage-config-api.onrender.com";
-
-// polling config ทุกกี่ ms (แนะนำ 3000–10000)
 const CONFIG_POLL_MS = 5000;
 
-// fallback video (ถ้า backend ยังไม่ส่งมา)
 const FALLBACK_VIDEO_URL =
     "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-
 /** =============================== */
 
 type UiState = "loading" | "ready" | "error";
 type LayoutMode = "split" | "web_only" | "video_only";
+
+type ScreenOrientation = "row" | "column";
+
+type ScreenConfig = {
+    // row = วางซ้าย-ขวา, column = วางบน-ล่าง
+    orientation?: ScreenOrientation;
+
+    // splitRatio = สัดส่วนของ VIDEO (%)
+    // เช่น 40 = video 40% / web 60%
+    splitRatio?: number; // 0..100
+
+    // ช่องว่างระหว่าง video กับ web (px)
+    gapPx?: number;
+
+    // padding รอบๆ ทั้งหน้าจอ (px)
+    paddingPx?: number;
+};
 
 type RemoteConfig = {
     deviceId: string;
@@ -37,7 +47,14 @@ type RemoteConfig = {
     videoUrl?: string;
     layout?: LayoutMode;
     updatedAt?: number;
+
+    // ✅ เพิ่มเติม: config หน้าจอ
+    screen?: ScreenConfig;
 };
+
+function clamp(n: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, n));
+}
 
 export default function App() {
     const webRef = useRef<WebView>(null);
@@ -51,7 +68,12 @@ export default function App() {
     const [videoUrl, setVideoUrl] = useState<string>(FALLBACK_VIDEO_URL);
     const [layout, setLayout] = useState<LayoutMode>("split");
 
-    // ใช้ key บังคับให้ VideoView รีเฟรชเมื่อ videoUrl เปลี่ยน
+    // ✅ screen state (มาจาก backend/db)
+    const [orientation, setOrientation] = useState<ScreenOrientation>("row");
+    const [splitRatio, setSplitRatio] = useState<number>(50); // video%
+    const [gapPx, setGapPx] = useState<number>(0);
+    const [paddingPx, setPaddingPx] = useState<number>(0);
+
     const player = useVideoPlayer(videoUrl, (p) => {
         p.loop = true;
         p.muted = true;
@@ -64,7 +86,7 @@ export default function App() {
         )}`;
     }, []);
 
-    // ====== 1) Poll config จากหลังบ้าน (หลังบ้านไปอ่าน DB ให้) ======
+    // ====== 1) Poll config ======
     useEffect(() => {
         let alive = true;
 
@@ -73,41 +95,51 @@ export default function App() {
                 const res = await fetch(configUrl, {
                     headers: { "Cache-Control": "no-cache" },
                 });
-
                 if (!res.ok) throw new Error(`CONFIG_HTTP_${res.status}`);
 
                 const cfg = (await res.json()) as RemoteConfig;
                 if (!alive) return;
 
-                // normalize
-                const nextWeb = (cfg.webUrl || "").trim();
-                const nextVideo = (cfg.videoUrl || "").trim();
+                // ---- layout (show/hide) ----
                 const nextLayout: LayoutMode =
                     cfg.layout === "web_only" || cfg.layout === "video_only"
                         ? cfg.layout
                         : "split";
-
-                // update layout
                 setLayout(nextLayout);
 
-                // update video url (ถ้าไม่ส่งมา อย่าทับ fallback)
-                if (nextVideo && nextVideo !== videoUrl) {
-                    setVideoUrl(nextVideo);
-                }
+                // ---- urls ----
+                const nextWeb = (cfg.webUrl || "").trim();
+                const nextVideo = (cfg.videoUrl || "").trim();
 
-                // update web url + reload webview ถ้าเปลี่ยนจริง
+                if (nextVideo && nextVideo !== videoUrl) setVideoUrl(nextVideo);
                 if (nextWeb && nextWeb !== webUrl) {
                     setWebUrl(nextWeb);
                     setReloadKey((k) => k + 1);
                 }
+
+                // ---- screen config ----
+                const sc = cfg.screen || {};
+
+                if (sc.orientation === "row" || sc.orientation === "column") {
+                    setOrientation(sc.orientation);
+                }
+
+                if (typeof sc.splitRatio === "number" && Number.isFinite(sc.splitRatio)) {
+                    setSplitRatio(clamp(sc.splitRatio, 0, 100));
+                }
+
+                if (typeof sc.gapPx === "number" && Number.isFinite(sc.gapPx)) {
+                    setGapPx(clamp(sc.gapPx, 0, 200));
+                }
+
+                if (typeof sc.paddingPx === "number" && Number.isFinite(sc.paddingPx)) {
+                    setPaddingPx(clamp(sc.paddingPx, 0, 200));
+                }
             } catch (e: any) {
-                // ถ้าต้องการให้เงียบ ๆ ก็ปล่อยไว้
-                // หรือจะโชว์ error overlay ก็ได้ (แล้วแต่คุณ)
                 console.log("FETCH_CONFIG_FAIL", e?.message ?? String(e));
             }
         }
 
-        // ยิงครั้งแรกทันที + ตั้ง interval
         void fetchConfig();
         const t = setInterval(fetchConfig, CONFIG_POLL_MS);
 
@@ -120,10 +152,7 @@ export default function App() {
     // ====== 2) hard reload webview กันค้าง ======
     useEffect(() => {
         const t = setInterval(() => {
-            // ถ้า layout ไม่โชว์ web ก็ไม่ต้อง reload web
-            if (layout !== "video_only") {
-                setReloadKey((k) => k + 1);
-            }
+            if (layout !== "video_only") setReloadKey((k) => k + 1);
         }, HARD_RELOAD_INTERVAL_MS);
         return () => clearInterval(t);
     }, [layout]);
@@ -131,27 +160,44 @@ export default function App() {
     // ====== 3) retry webview เมื่อ error ======
     useEffect(() => {
         if (uiState !== "error") return;
-
         const t = setTimeout(() => {
             setReloadKey((k) => k + 1);
             setUiState("loading");
             setLastError(null);
         }, RETRY_DELAY_MS);
-
         return () => clearTimeout(t);
     }, [uiState]);
 
     const showVideo = layout !== "web_only";
     const showWeb = layout !== "video_only";
 
+    // ✅ คำนวณ flex ตาม splitRatio (video%)
+    const videoFlex = clamp(splitRatio, 0, 100);
+    const webFlex = 100 - videoFlex;
+
+    // ถ้าซ่อนฝั่งหนึ่ง ให้กินเต็ม
+    const leftFlex = showVideo ? Math.max(0, videoFlex) : 0;
+    const rightFlex = showWeb ? Math.max(0, webFlex) : 0;
+
+    const containerStyle: StyleProp<ViewStyle> = [
+        styles.container,
+        { flexDirection: orientation, padding: paddingPx, rowGap: gapPx, columnGap: gapPx },
+    ];
+
+
     return (
         <View style={styles.root}>
-            <View style={styles.row}>
-                {/* LEFT : VIDEO */}
-                <View style={[styles.left, !showVideo && styles.hidden]}>
+            <View style={containerStyle}>
+                {/* VIDEO */}
+                <View
+                    style={[
+                        styles.panel,
+                        leftFlex === 0 ? styles.hidden : { flex: leftFlex },
+                    ]}
+                >
                     {showVideo && (
                         <VideoView
-                            key={videoUrl} // บังคับ remount เมื่อ url เปลี่ยน
+                            key={videoUrl}
                             style={styles.video}
                             player={player}
                             allowsFullscreen={false}
@@ -160,8 +206,13 @@ export default function App() {
                     )}
                 </View>
 
-                {/* RIGHT : WEBVIEW */}
-                <View style={[styles.right, !showWeb && styles.hidden]}>
+                {/* WEB */}
+                <View
+                    style={[
+                        styles.panel,
+                        rightFlex === 0 ? styles.hidden : { flex: rightFlex },
+                    ]}
+                >
                     {showWeb && (
                         <WebView
                             key={reloadKey}
@@ -176,14 +227,11 @@ export default function App() {
                                 setLastError(null);
                             }}
                             onLoadEnd={() => {
-                                // กันกรณี error มาก่อนแล้ว onLoadEnd มาทับ
                                 setUiState((s) => (s === "error" ? "error" : "ready"));
                             }}
                             onError={(e) => {
                                 setUiState("error");
-                                setLastError(
-                                    e.nativeEvent?.description ?? "WEBVIEW_ERROR"
-                                );
+                                setLastError(e.nativeEvent?.description ?? "WEBVIEW_ERROR");
                             }}
                             onHttpError={(e) => {
                                 setUiState("error");
@@ -192,7 +240,6 @@ export default function App() {
                         />
                     )}
 
-                    {/* overlay เฉพาะตอนมี web */}
                     {showWeb && (uiState === "loading" || uiState === "error") && (
                         <View style={styles.overlay}>
                             <Text style={styles.overlayTitle}>
@@ -212,9 +259,8 @@ export default function App() {
                                 <Text style={styles.btnText}>Reload</Text>
                             </Pressable>
 
-                            {/* debug เล็กน้อย */}
                             <Text style={styles.debug}>
-                                {DEVICE_ID} • {layout}
+                                {DEVICE_ID} • {layout} • {orientation} • {splitRatio}%
                             </Text>
                         </View>
                     )}
@@ -226,12 +272,19 @@ export default function App() {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: "#000" },
-    row: { flex: 1, flexDirection: "row" },
 
-    left: { flex: 1, backgroundColor: "#000" },
-    right: { flex: 1, backgroundColor: "#000" },
+    container: {
+        flex: 1,
+        backgroundColor: "#000",
+    },
 
-    hidden: { width: 0, flex: 0 },
+    panel: {
+        backgroundColor: "#000",
+        minWidth: 0, // กัน webview overflow บน android บางรุ่น
+        minHeight: 0,
+    },
+
+    hidden: { width: 0, height: 0, flex: 0 },
 
     video: { width: "100%", height: "100%" },
     web: { flex: 1, backgroundColor: "#000" },
